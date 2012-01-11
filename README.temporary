@@ -1,0 +1,281 @@
+# Introduction
+
+Hi guys, I'm pleased to announce the first three versions of the brand new
+WebGL engine called, glQuery: 1.0, 2.0 and 3.0.
+
+glQuery is already being used in a real product which I can't talk about just 
+yet... but you'll be hearing about it soon! (I'll post more about that on this
+list in a month or two).
+
+glQuery is public domain software please read licenses/LEGALCODE-cc0-1.0 and
+COPYING for more information.
+
+# How is glQuery different from other WebGL engines?
+
+So why a new WebGL engine? When I started freelancing as WebGL dev I had no
+intention of creating my own engine, mostly because I reckoned it would be
+smarter to leave the time-consuming engine development to other volunteers.
+I've done 3d engine development in the past so theoretically this isn't all that
+new to me anyway. However, over time I developed a bunch of new ideas that I
+simply couldn't resist :)
+
+Ok, so I see glQuery as an evolution of a few existing WebGL engines, hoping to
+have learnt a few things in the intersection of 3D graphics / JavaScript /
+the WWW. glQuery is being developed with a few specific design forces and one or
+two "big ideas" in mind.
+
+First of all, glQuery is based around a fluent API similar to other popular
+libraries like jQuery and D3 together with a flexible tagging system. This
+allows for an extremely versatile API that operates at a high level of
+abstraction yet remains very simple. In fact, this is the main selling point of
+the API, so if you'd like to see why I think this is an amazingly cool idea I'd
+recommend taking a look at some of the comparisons/examples: http://......... (TODO)
+
+Secondly, glQuery is a carefully designed, API-oriented library. There are
+already many really good, feature rich WebGL engines out there. Instead glQuery
+is being built in a slow but steady, carefully considered manner in order to
+focus on robustness and performance first for production environments. That
+said, even though glQuery focusses on a small subset of features it is very easy
+to incorporate into any existing WebGL project that could benefit from a query
+mechanism. glQuery is also pretty hackable and provides explicit mechanisms for
+extending its API.
+So... in getting back to the development cycle of the project, glQuery will have
+a very short release cycle with few features per release and a complete test
+suite. I'm also considering trying out a kind of Intel-style tick-tock
+development schedule where features are added in the tick and 
+refactoring/optimization is performed during the tock (not yet sure if the real
+world will allow me this luxury however :)).
+
+So, ok, I've said that I see glQuery as an evolution of some other engines.
+To justify that claim here's a few lessons from other engines and frameworks
+that's influenced the design:
+
+* Scene graphs are clumsy (in general)
+
+  Despite their popularity scene graphs tend be a clumsy way of manipulating a
+  scene and are not really representative of the internal workings of a graphics
+  engine either. In addition, they add quite a bit of traversal overhead for
+  accessing, manipulation and rendering, especially w.r.t. JavaScript.
+
+  In fact, many OpenGL states behave more like attributes since they have no
+  clear hierarchical effect and can be mixed/grouped together in suprising ways.
+  That said, there are a few instances where a hierarchical representation does
+  offer a few nice benefits:
+
+  1. Operations that stack are often naturally hierarchical, like
+     transform or CSG operations. (Although, sometimes, even with
+     transformations things are not always so clean).
+  2. Marking branches as *dirty* can help with caching to avoid recomputing
+     states.
+  3. Scene graphs are intuitive for many people, offering a kind of inheritance
+     of attributes that people like.
+  4. Since scene graphs are declarative they are easy to serialize.
+  5. Operating on collections of objects is convenient (when you can mangle
+     the scene graph into appropriate groupings of nodes).
+
+  For this reason glQuery does have a hierarchical scene representation,
+  however it is intended only as a convenience on top of the more flexible
+  "tagging" system that I'll describe lower down. Internally glQuery's renderer
+  uses buckets with state hashes for sorting draw calls efficiently. glQuery's
+  tagging system is also sufficiently powerfull that common operations such as
+  transformations *can* be stacked easily by simply using a different form of
+  the API call.
+  E.g. Use `transformUniform(...)` in place of `uniform(...)`
+
+* Optimize for two use cases: static and dynamic
+
+  Some engines are specifically intended for cases where large numbers of mostly
+  static objects need to be manipulated, like in viewers and engineering
+  applications. Meanwhile other engines focus on highly dynamic scenes with
+  emphasis on special effects and frame-by-frame updates.
+
+  glQuery attempts to keep both of these use cases in mind and uses an 
+  extremely simple heuristic to optimize (where convenient/ the hotspots.. TODO).
+  
+* glQuery is not an island.
+
+  The old days of big monolythic frameworks is past... and good riddance too.
+  Today most libraries are small, lightweight and extremely modular. This is
+  great because they're simple to understand, highly specialized and most
+  importantly, framework-agnostic.
+  
+  Using glQuery with any other WebGL engine should be no problem at all, so
+  long as the engine exposes the WebGL context you need, you're good to go.*
+
+  How lightweight is glQuery? Bragging about the size of your engine on the
+  first release is probably a bit obnoxious! Never-the-less, the idea is to keep
+  things small:
+
+    glquery-1.0.min.js:            5.??? kb (1.0, minified)
+    glquery-1.0-unsafe.min.js:     5.??? kb (1.0 unsafe branch, minified)
+    scenejs-2.0.0.min.js:        3??.??? kb (2.0.0, minified)
+    Three.min.js:                343.383 kb (r46, minified)
+    PhiloGL.cls.js:               58.714 kb (1.4.2, minified)
+    glix.min.js                    5.708 kb (0.1, minified)
+    glix.min.js                   17.384 kb (HEAD, minified)
+    CubicVR.js                     ????? kb
+    glge-compiled-min.js         320.303 kb (HEAD, minified)
+    osg-0.0.6.js                 140.158 kb (0.0.6, minified)
+    copperlicht.js               245.602 kb (1.4.1 opensource sdk, minified)
+    kick-min-0.2.0.js             98.814 kb (HEAD, minified)
+    Oak3D_v_0_5.js               436.043 kb (0.5, minified)
+
+  (* Of course, when absolutely necessary it is also possible to simply create
+     a second WebGL context and render its framebuffer over the first one, but
+     the contexts will not share the same depth buffer.)
+
+* glQuery is designed at a level of abstraction that's "just right"
+
+  The 90's and early 2000's was an era where OO really boomed and became a kind
+  of silver bullet in mainstream programming. In recent years we've seen this
+  trend start to reverse in many modern, enlightened environments. Especially
+  where speed matters people tend to think in terms of collections and
+  operations over them rather than complex individual "kitchen sink" objects.
+
+  Many WebGL engines seem to take an OO-like approach of wrapping every piece of
+  WebGL functionality into an encapsulated object. There is good justification
+  for doing this in some circumstances, however in the case of many WebGL
+  engines I think this is an instinctual design decision rather than a real
+  engineering requirement.
+  The one big reason to encapsulate WebGL into a black box (in my opinion) is to
+  attain a platform agnostic API. For example you may want to create a vector
+  graphics API targetting any of three different implementations - perhaps
+  Canvas, SVG and WebGL. 
+  However, with the notable exception of ThreeJS, very few engines actually
+  have any intention of targeting multiple back-ends and for good reason:
+
+  1. It is pretty clear that WebGL is obsoleting other 3D Web API's such as
+     SilverLight, Flash (both of which appear to be dying) and O3D (which is
+     already dead and resurected as a WebGL engine).
+  2. On cellphones, desktops and to a lesser extent consoles, OpenGL ES is a
+     pretty ubiquitous standard.
+  3. OpenGL ES is already a mid level API, wrapping the functionality of
+     the underlying drivers. If an engine exposes a large amount of OpenGL-like
+     functionality, then targeting a new platform would be similar to simply
+     emulating WebGL on that platform (O3D is a pretty good example).
+
+  On the other hand, the advantages of staying relatively close to the WebGL API
+  are...
+
+  1. It keeps the engine slim, making it fast and adaptable.
+  2. It has a familiar (but simplified) set of operations and constants that
+     most graphics programmers know very well.
+  3. The overhead of writing, maintaining and documenting redundant proxy
+     objects and wrapper functions is significantly reduced.
+  4. If glQuery needs to be ported to a new platform it probably makes more
+     sense to simply fork the project and retarget the implementation. There's
+     no such thing as a perfect port.
+
+* glQuery is a retained mode API
+  
+  The advantages of a retained mode interface are numerous:
+
+  1. Straight-forward serialization to JSON and back.
+  2. Easily use glQuery inside a web worker, allowing you to build high
+     performance multi-threaded web apps. glQuery automatically
+     synchronizes commands issued from workers in time to render each frame.
+     Every worker is allowed to keep its own custom data so as not to
+     overload the message passing mechanism (since this would kill performance).
+  3. Offers a remote procedure call type of service that lets a web server send
+     glQuery commands via Ajax or even over a WebSocket.
+  4. Offers an opportunity to solve low-level performance concerns.
+     For example, many gl.get* commands are known to stall the driver/gpu in
+     common implementations. Retained mode gives glQuery an opportunity to
+     optimize these inefficiencies away through caching and ordering without
+     putting the onus of storing/maintaining these objects on the application
+     programmer. Optimizations are performed on a small, specialized kernel
+     rather than a loose framework.
+  5. GPU resources such as shaders and textures are managed by the
+     implementation. (TODO: but may be explicitly loaded by the application?)
+  6. Possibly in the future, support for recording and playback?
+
+  You'll notice that both SceneJS and GLGE also have their own command API's
+  for communicating with remote clients. glQuery takes this one step further
+  and uses it for general-purpose serialization and isolated webworkers.
+
+* Tweening is cool, and loves fluent API's
+  Tweening *is* cool, you know it is. Chaining together animations and commands
+  over events is simply so convenient that it's become a kind of standardized
+  methodology. This works equally well with interactive games as with simple
+  webpages and as is evidenced by jquery, is perfectly suited to a fluent API.
+  We're only just getting started with tweening for now.
+
+* Play to JavaScript's strengths
+  Javascript is good at dynamic... compilers focus on (TODO) optimizations
+  On the other hand, garbage collection is not so fast (although implementors 
+  are working on incremental gc's)
+
+# The Tagging system
+
+glQuery takes a tagging approach. Tag an operation, and say all objects that are
+tagged "metal" should.....
+Tags can be viewed in a similar way to HTML/CSS classes.
+(TODO...)
+
+# Versioning
+
+glQuery is releasing not one version, but four. Each major version number will
+be maintained separately :
+
+* glquery-1.0 - Direct WebGL query framework (very lightweight, no managed gpu
+                resources, at present only works on a single context at a time -
+                until shared resources is added to WebGL)
+* glquery-2.0 - Simple glQuery engine
+* glquery-3.0 - Advanced glQuery engine (adds webworkers, tweening,...)
+* glquery-lite - Removes support for directly working with certain WebGL objects
+
+And several extensions which can be included in the download:
+
+* glQuery-tweening - A tweening/animation framework for glQuery.
+* glQuery-primitives - A primitives library includes spheres, boxes, toruses...
+
+And some extra tools:
+
+* glQuery-boilerplate - Kick-start your glQuery app like a pro
+* glQuery-COLLADA - Quick, easy conversion form COLLADA -> glQuery
+
+
+####
+
+Since WebGL has been around for some time now I believe
+we finally have a pretty good idea of what the design forces that drive a good engine should be.
+
+There are several design principles that drive.
+
+* Firstly the design is based around a fluent jQuery-like API which happens to be very 
+* A carefully balanced level abstraction that we believe is "just right". GLGE 
+
+* Managed WebGL resources (in the non-lite version of glQuery)
+* glQuery is designed from the ground up for performance
+* Based around a short release cycle
+
+------
+# Links
+
+* [The GitHub Project]
+* [Download instructions]
+  * [Alternative instructions for downloading the NodesJS module]
+* [Community]
+  * [Google Group]
+  * [Google+ Page]
+  * [Facebook]
+  * [Twitter]
+  * [LinkedIn Group]
+* [Documentation]
+
+----------
+# Conclusion
+
+So, in closing, please feel free to comment on the design or fork the project.
+I'm looking to make this engine kick butt, so feedback is very welcome and I'm
+open to suggestions. Please excuse me if I don't answer to every comment, I'll
+try to keep up as best I can :P
+
+P.S. I'd also specifically like to thank Lindsay Kay from the SceneJS project
+for all of his insights. A lot of my ideas have developed over time in
+conversations around SceneJS...
+(SceneJS has just recently released a version 2.0!)
+
+Cheers,
+Rehno
+
